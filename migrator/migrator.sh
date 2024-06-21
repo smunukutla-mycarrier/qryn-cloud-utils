@@ -2,9 +2,9 @@
 from_db=qryn_oss; # CURRENT QRYN-OSS db name 
 to_db=qryn_cloud; # TARGET QRYN-Cloud db name
 to_org_id=0; # TARGET org id for imported data
-to_ttl_days=8; # TTL days you want to keep imported data
-               # NOTE: always extend the TTL considering the FIRST timestamp of imported data.
-               # failing to do so might cause data to be rotated instantly and validations to fail
+to_ttl_days=8;  # TTL days you want to keep imported data
+                # NOTE: always extend the TTL considering the FIRST timestamp of imported data.
+                # failing to do so might cause data to be rotated instantly and validations to fail
 dates='2024-06-03 2024-06-04 2024-06-05 2024-06-06'; # dates you want to copy separated by space
 CLICKHOUSE_CLIENT='clickhouse-client --user default --host localhost --port 9440 --secure --password secret_pass'; # command to connect clickhouse-client cli
 drop_data='0'; # should we drop the old data after copy? 1 - yes 0 - no
@@ -27,13 +27,13 @@ EOF
     cat <<EOF | $CLICKHOUSE_CLIENT >./out || exit 1
         SELECT b.c >= a.c FROM
             (SELECT count() c FROM ${from_db}.samples_v3
-            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as a
-        ANY LEFT JOIN
+            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) 
+                AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as a,
             (SELECT count() c FROM ${to_db}.samples_v4
-            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as b
-        ON 1=1;
+            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) 
+                AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as b
 EOF
-    out=`cat out | cut -z -b -1`;
+    out=`cat out`;
     if [ "$out" -eq "0" ]; then echo "copied data is less than the initital one"; exit 1;
     else echo "check ok"; fi
 
@@ -57,13 +57,11 @@ EOF
     cat <<EOF | $CLICKHOUSE_CLIENT >./out || exit 1
         SELECT b.c >= a.c FROM
             (SELECT count(distinct fingerprint) c FROM ${from_db}.time_series
-            WHERE date='${date}') as a
-        ANY LEFT JOIN
+            WHERE date='${date}') as a,
             (SELECT count(distinct fingerprint) c FROM ${to_db}.time_series_v2
             WHERE date='${date}') as b
-        ON 1=1;
 EOF
-    out=`cat out | cut -z -b -1`
+    out=`cat out`
     if [ "$out" -eq "0" ]; then echo "copied data is less than the initital one"; exit 1;
     else echo "check ok"; fi
 
@@ -88,13 +86,13 @@ EOF
     cat <<EOF | $CLICKHOUSE_CLIENT >./out || exit 1
         SELECT b.c >= a.c FROM
             (SELECT count() c FROM ${from_db}.tempo_traces
-            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as a
-        ANY LEFT JOIN
+            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) 
+                AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as a,
             (SELECT count() c FROM ${to_db}.tempo_traces
-            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as b
-        ON 1=1;
+            WHERE (timestamp_ns >= (toUnixTimestamp(toDateTime('${date}')) * 1000000000)) 
+                AND (timestamp_ns < ((toUnixTimestamp(toDateTime('${date}')) + ((24 * 60) * 60)) * 1000000000))) as b
 EOF
-    out=`cat out | cut -z -b -1`
+    out=`cat out`
     if [ "$out" -eq "0" ]; then echo "copied data is less than the initital one"; exit 1;
     else echo "check ok"; fi
 
@@ -118,13 +116,11 @@ EOF
     cat <<EOF | $CLICKHOUSE_CLIENT >./out || exit 1
         SELECT b.c >= a.c * 0.9 FROM
             (SELECT uniq(trace_id, span_id) c FROM ${from_db}.tempo_traces_attrs_gin
-            WHERE date='${date}') as a
-        ANY LEFT JOIN
+            WHERE date='${date}') as a,
             (SELECT uniq(trace_id, span_id) c FROM ${to_db}.tempo_traces_attrs_gin
             WHERE date='${date}') as b
-        ON 1=1;
 EOF
-    out=`cat out | cut -z -b -1`
+    out=`cat out`
     if [ "$out" -eq "0" ]; then echo "copied data is less than the initital one"; exit 1;
     else echo "check ok"; fi
 
